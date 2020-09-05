@@ -31,12 +31,18 @@ def get_todos() -> list:
     with sqlite3.connect(DATABASE) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute('SELECT * FROM todos')
+        cursor.execute('SELECT rowid, title, desc, dateCreated FROM todos')
         todos = [dict(row) for row in cursor.fetchall()]
+
     return todos
 
 
-def write_todo(todo: dict) -> None:
+def write_todo(todo: dict) -> str:
+    """
+        writes the new todo to the database and
+        returns the new todo's id in the database
+    """
+    print(todo)
     with sqlite3.connect(DATABASE) as conn:
         cursor = conn.cursor()
         cursor.execute(
@@ -46,14 +52,42 @@ def write_todo(todo: dict) -> None:
                 "{todo["dateCreated"]}"\
             )')
         conn.commit()
+    return str(cursor.lastrowid)
 
 
 def delete_todo(todo_id) -> None:
+    print(todo_id)
     with sqlite3.connect(DATABASE) as conn:
         cursor = conn.cursor()
         cursor.execute(f'DELETE FROM todos WHERE rowid={todo_id}')
         conn.commit()
 
+
+def edit_todo(todo: dict) -> None:
+    with sqlite3.connect(DATABASE) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            f'UPDATE todos SET \
+                title = "{todo["title"]}",\
+                desc = "{todo["desc"]}"\
+            WHERE rowid = {todo["rowid"]}\
+            ')
+        conn.commit()
+
+
+
+@app.route('/edit', methods=['POST'])
+def edit():
+    if not request.form['apiKey'] == API_KEY:
+        return Response('Access denied', status=403)
+    
+    todo = {
+        'title': request.form['title'],
+        'desc': request.form['desc'],
+        'rowid': request.form['rowid']
+    }
+    edit_todo(todo)
+    return Response(response='Success', status=200)
 
 
 @app.route('/delete', methods=['POST'])
@@ -61,7 +95,7 @@ def delete():
     if not request.form['apiKey'] == API_KEY:
         return Response('Access denied', status=403)
     
-    delete_todo(request.form['id'])
+    delete_todo(request.form['rowid'])
     return Response(response='Success', status=200)
 
 
@@ -87,9 +121,9 @@ def add():
         'dateCreated': request.form['dateCreated']
     }
 
-    write_todo(todo)
+    rowid: str = write_todo(todo)
     
-    return Response(response='Success', status=200)
+    return Response(response=rowid, status=200)
 
 if __name__ == "__main__":
 
