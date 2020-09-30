@@ -9,6 +9,7 @@ DATABASE = 'database.db'
 API_KEY = 'p5nsaSjf847MNdss--12'
 
 
+
 def create_database():
     print('\nCreating new database since no database was found\n')
     with sqlite3.connect(DATABASE) as conn:
@@ -46,11 +47,8 @@ def write_todo(todo: dict) -> str:
     with sqlite3.connect(DATABASE) as conn:
         cursor = conn.cursor()
         cursor.execute(
-            f'INSERT INTO todos VALUES (\
-                "{todo["title"]}", \
-                "{todo["desc"]}", \
-                "{todo["dateCreated"]}"\
-            )')
+            'INSERT INTO todos VALUES (?,?,?)',
+            (todo["title"], todo["desc"], todo["dateCreated"]))
         conn.commit()
     return str(cursor.lastrowid)
 
@@ -59,7 +57,7 @@ def delete_todo(todo_id) -> None:
     print(todo_id)
     with sqlite3.connect(DATABASE) as conn:
         cursor = conn.cursor()
-        cursor.execute(f'DELETE FROM todos WHERE rowid={todo_id}')
+        cursor.execute(f'DELETE FROM todos WHERE rowid=?', (todo_id,))
         conn.commit()
 
 
@@ -67,41 +65,62 @@ def edit_todo(todo: dict) -> None:
     with sqlite3.connect(DATABASE) as conn:
         cursor = conn.cursor()
         cursor.execute(
-            f'UPDATE todos SET \
-                title = "{todo["title"]}",\
-                desc = "{todo["desc"]}"\
-            WHERE rowid = {todo["rowid"]}\
-            ')
+            'UPDATE todos SET title=?, desc=? WHERE rowid=?',
+            (todo['title'], todo['desc'], todo['rowid']))
         conn.commit()
 
 
 
 @app.route('/edit', methods=['POST'])
 def edit():
-    if not request.form['apiKey'] == API_KEY:
+    try:
+        if not request.form['apiKey'] == API_KEY:
+            # wrong api key
+            return Response('Access denied', status=403)
+    except KeyError:
+        # no api key provided
         return Response('Access denied', status=403)
     
-    todo = {
-        'title': request.form['title'],
-        'desc': request.form['desc'],
-        'rowid': request.form['rowid']
-    }
+    try:
+        todo = {
+            'title': request.form['title'],
+            'desc': request.form['desc'],
+            'rowid': request.form['rowid']
+        }
+    except KeyError:
+        return Response('Invalid form', status=400)
+    
     edit_todo(todo)
     return Response(response='Success', status=200)
 
 
 @app.route('/delete', methods=['POST'])
 def delete():
-    if not request.form['apiKey'] == API_KEY:
+    try:
+        if not request.form['apiKey'] == API_KEY:
+            # wrong api key
+            return Response('Access denied', status=403)
+    except KeyError:
+        # no api key provided
         return Response('Access denied', status=403)
     
-    delete_todo(request.form['rowid'])
+    try:
+        delete_todo(request.form['rowid'])
+    except KeyError:
+        return Response('Invalid form', status=400)
+
     return Response(response='Success', status=200)
 
 
 @app.route('/fetch', methods=['POST'])
 def fetch():
-    if not request.form['apiKey'] == API_KEY:
+    
+    try:
+        if not request.form['apiKey'] == API_KEY:
+            # wrong api key
+            return Response('Access denied', status=403)
+    except KeyError:
+        # no api key provided
         return Response('Access denied', status=403)
 
     todos = json.JSONEncoder().encode(get_todos())
@@ -115,20 +134,24 @@ def add():
     if not request.form['apiKey'] == API_KEY:
         return Response('Access denied', status=403)
 
-    todo = {
-        'title': request.form['title'],
-        'desc': request.form['desc'],
-        'dateCreated': request.form['dateCreated']
-    }
+    try:
+        todo = {
+            'title': request.form['title'],
+            'desc': request.form['desc'],
+            'dateCreated': request.form['dateCreated']
+        }
+    except KeyError:
+        return Response('Invalid form', status=400)
 
     rowid: str = write_todo(todo)
     
     return Response(response=rowid, status=200)
 
+
 if __name__ == "__main__":
 
     check_database()
-    app.run(debug=True, host='192.168.1.8', port=5000)
+    app.run(debug=True, host='127.0.0.1', port=5000)
 
 else:
 
