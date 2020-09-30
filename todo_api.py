@@ -131,7 +131,10 @@ def fetch():
 
 @app.route('/add', methods=['POST'])
 def add():
-    if not request.form['apiKey'] == API_KEY:
+    try:
+        if not request.form['apiKey'] == API_KEY:
+            return Response('Access denied', status=403)
+    except KeyError:
         return Response('Access denied', status=403)
 
     try:
